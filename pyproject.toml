@@ -15,6 +15,7 @@ dependencies = [
     "alembic (>=1.16.4,<2.0.0)",
     "pwdlib[argon2] (>=0.2.1,<0.3.0)",
     "pyjwt (>=2.10.1,<3.0.0)",
+    "aiosqlite (>=0.21.0,<0.22.0)",
 ]
 
 
@@ -28,6 +29,8 @@ pytest-cov = "^6.2.1"
 taskipy = "^1.14.1"
 ruff = "^0.12.10"
 testcontainers = "^4.12.0"
+pytest-asyncio = "^1.1.0"
+factory-boy = "^3.3.3"
 
 [tool.ruff]
 line-length = 79
@@ -44,12 +47,13 @@ quote-style = 'single'
 [tool.pytest.ini_options]
 pythonpath = "."
 addopts = '-p no:warnings'
+asyncio_default_fixture_loop_scope = 'function'
 
 [tool.taskipy.tasks]
 lint = 'ruff check'
 pre_format = 'ruff check --fix'
 format = 'ruff format'
-run = 'fastapi dev auto_recon_api/app.py'
+run = 'uvicorn auto_recon_api.app:app --host 0.0.0.0'
 pre_test = 'task lint'
 test = 'pytest -s -x --cov=auto_recon_api -vv'
 post_test = 'coverage html'
