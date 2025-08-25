@@ -13,7 +13,9 @@ from auto_recon_api.database import get_session
 from auto_recon_api.models import User
 from auto_recon_api.settings import Settings
 
-oauth_scheme = OAuth2PasswordBearer(tokenUrl='auth/token')
+oauth_scheme = OAuth2PasswordBearer(
+    tokenUrl='auth/token', refreshUrl='auth/refresh'
+)
 settings = Settings()
 pwd_context = PasswordHash.recommended()
 

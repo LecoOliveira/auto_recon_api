@@ -27,12 +27,12 @@ async def create_user(user: UserSchema, session: Session):
     if db_user:
         if db_user.username == user.username:
             raise HTTPException(
-                detail='Username already exists',
+                detail='Username or email already used',
                 status_code=HTTPStatus.CONFLICT,
             )
         elif db_user.email == user.email:
             raise HTTPException(
-                detail='Email already exists',
+                detail='Username or email already used',
                 status_code=HTTPStatus.CONFLICT,
             )
 
@@ -49,7 +49,7 @@ async def create_user(user: UserSchema, session: Session):
     return db_user
 
 
-@router.get('/', response_model=UserPublic, status_code=HTTPStatus.OK)
+@router.get('/{user_id}', response_model=UserPublic, status_code=HTTPStatus.OK)
 async def read_user(user_id: int, session: Session, current_user: CurrentUser):
     user = await session.scalar(select(User).where(User.id == user_id))
 
@@ -64,10 +64,7 @@ async def read_user(user_id: int, session: Session, current_user: CurrentUser):
 
 @router.put('/{user_id}', response_model=UserPublic)
 async def update_user(
-    user_id: int,
-    user: UserSchema,
-    session: Session,
-    current_user: CurrentUser
+    user_id: int, user: UserSchema, session: Session, current_user: CurrentUser
 ):
     if current_user.id != user_id:
         raise HTTPException(
