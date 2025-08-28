@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from auto_recon_api.database import get_session
 from auto_recon_api.models import User
-from auto_recon_api.schemas import UserPublic, UserSchema
+from auto_recon_api.schemas import Message, UserPublic, UserSchema
 from auto_recon_api.security import get_current_user, get_password_hash
 
 router = APIRouter(prefix='/users', tags=['users'])
@@ -86,3 +86,19 @@ async def update_user(
             detail='Username or Email already exists',
             status_code=HTTPStatus.CONFLICT,
         )
+
+
+@router.delete('/{user_id}', response_model=Message)
+async def delete_user(
+    user_id: int, session: Session, current_user: CurrentUser
+):
+    if current_user.id != user_id:
+        raise HTTPException(
+            detail='Not enough permissions',
+            status_code=HTTPStatus.FORBIDDEN,
+        )
+
+    await session.delete(current_user)
+    await session.commit()
+
+    return {'message': 'User deleted successfully'}

@@ -111,3 +111,23 @@ def test_update_user_already_exists(client, user_2, user, token):
     )
 
     assert response.status_code == HTTPStatus.CONFLICT
+
+
+def test_delete_user(client, user, token):
+    response = client.delete(
+        f'/users/{user.id}',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json()['message'] == 'User deleted successfully'
+
+
+def test_delete_user_without_permissions(client, user_2, token):
+    response = client.delete(
+        f'/users/{user_2.id}',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == HTTPStatus.FORBIDDEN
+    assert response.json()['detail'] == 'Not enough permissions'
