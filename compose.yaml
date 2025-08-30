@@ -1,6 +1,7 @@
 services:
   recon_database:
     image: postgres
+    container_name: recon_database
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:

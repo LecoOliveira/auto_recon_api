@@ -1,3 +1,6 @@
+from datetime import datetime
+from typing import List
+
 from pydantic import BaseModel, ConfigDict, EmailStr
 
 
@@ -21,3 +24,21 @@ class Token(BaseModel):
 
 class Message(BaseModel):
     message: str
+
+
+class DomainPublic(BaseModel):
+    id: int
+    name: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_atributes=True)
+
+
+class DomainSchema(BaseModel):
+    domains: List[DomainPublic]
+
+
+class DomainResponseCreated(BaseModel):
+    added: List[DomainPublic]
+    already_exists: List[str]

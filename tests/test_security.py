@@ -6,8 +6,7 @@ from jwt import decode
 from auto_recon_api.security import create_access_token, settings
 
 
-def test_get_current_user_without_credentials():
-    ...
+def test_get_current_user_without_credentials(): ...
 
 
 def test_token_expired_after_time(client, user):
