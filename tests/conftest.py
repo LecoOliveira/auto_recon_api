@@ -7,7 +7,7 @@ from testcontainers.postgres import PostgresContainer
 
 from auto_recon_api.app import app
 from auto_recon_api.database import get_session
-from auto_recon_api.models import User, table_registry
+from auto_recon_api.models import Domain, User, table_registry
 from auto_recon_api.security import get_password_hash
 from auto_recon_api.settings import Settings
 
@@ -78,6 +78,17 @@ def token(client, user):
         data={'username': user.email, 'password': user.clean_password},
     )
     return response.json()['access_token']
+
+
+@pytest_asyncio.fixture
+async def domain(session, user):
+    domain = Domain(name='teste.com', user_id=user.id)
+
+    session.add(domain)
+    await session.commit()
+    await session.refresh(domain)
+
+    yield domain
 
 
 @pytest.fixture

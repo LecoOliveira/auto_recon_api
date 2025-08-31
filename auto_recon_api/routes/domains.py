@@ -8,7 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from auto_recon_api.database import get_session
 from auto_recon_api.models import Domain, User
-from auto_recon_api.schemas import DomainResponseCreated, DomainSchema
+from auto_recon_api.schemas import (
+    DomainResponseCreated,
+    DomainSchema,
+    EnterDomainSchema,
+    Message,
+)
 from auto_recon_api.security import get_current_user
 
 router = APIRouter(prefix='/domains', tags=['domains'])
@@ -20,7 +25,7 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
     '/', response_model=DomainResponseCreated, status_code=HTTPStatus.CREATED
 )
 async def add_domains(
-    domains: DomainSchema, session: Session, user: CurrentUser
+    domains: EnterDomainSchema, session: Session, user: CurrentUser
 ):
     domain_names = set(domains.domains)
     exists_names = (
@@ -45,7 +50,8 @@ async def add_domains(
         await session.rollback()
         raise HTTPException(
             detail='One or more domains already exist or violate unique'
-            f' constraints. ({str(error.orig)})'
+            f' constraints. ({str(error.orig)})',
+            status_code=HTTPStatus.CONFLICT
         )
 
     for db_domain in new_domains:
@@ -57,9 +63,26 @@ async def add_domains(
 @router.get('/', response_model=DomainSchema, status_code=HTTPStatus.OK)
 async def get_domains(session: Session, user: CurrentUser):
     domains = (
-        await session.scalars(
-            select(Domain).where(Domain.user_id == user.id)
-        )
+        await session.scalars(select(Domain).where(Domain.user_id == user.id))
     ).all()
 
     return {'domains': domains}
+
+
+@router.delete(
+    '/{domain_id}', response_model=Message, status_code=HTTPStatus.OK
+)
+async def delete_domain(domain_id: int, user: CurrentUser, session: Session):
+    db_domain = await session.scalar(
+        select(Domain).where(Domain.id == domain_id, Domain.user_id == user.id)
+    )
+
+    if not db_domain:
+        raise HTTPException(
+            detail='Domain not found', status_code=HTTPStatus.NOT_FOUND
+        )
+
+    await session.delete(db_domain)
+    await session.commit()
+
+    return {'message': 'Domain deleted'}

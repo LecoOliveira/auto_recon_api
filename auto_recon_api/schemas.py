@@ -35,6 +35,10 @@ class DomainPublic(BaseModel):
     model_config = ConfigDict(from_atributes=True)
 
 
+class EnterDomainSchema(BaseModel):
+    domains: List[str]
+
+
 class DomainSchema(BaseModel):
     domains: List[DomainPublic]
 
@@ -42,3 +46,7 @@ class DomainSchema(BaseModel):
 class DomainResponseCreated(BaseModel):
     added: List[DomainPublic]
     already_exists: List[str]
+
+
+class DeleteDomain(BaseModel):
+    domain: str
