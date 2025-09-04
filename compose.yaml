@@ -25,5 +25,15 @@ services:
     env_file:
       - .env
 
+  recon_tool:
+    container_name: recon_tool
+    build:
+      context: .
+      dockerfile: Dockerfile.tools
+    ports:
+      - "8001:8001"
+    tty: true
+    stdin_open: true
+
 volumes:
   pgdata:

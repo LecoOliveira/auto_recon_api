@@ -56,4 +56,35 @@ class Domain:
     user: Mapped['User'] = relationship(
         'User', back_populates='domains', init=False
     )
+
+    subdomains: Mapped[List['Subdomain']] = relationship(
+        'Subdomain',
+        back_populates='domain',
+        init=False,
+        cascade='all, delete-orphan',
+    )
+
     status: Mapped[str] = mapped_column(default='pending')
+
+
+@table_registry.mapped_as_dataclass
+class Subdomain:
+    __tablename__ = 'subdomain'
+
+    id: Mapped[int] = mapped_column(primary_key=True, init=False)
+    host: Mapped[str] = mapped_column(unique=True)
+    ip: Mapped[str]
+    domain_id: Mapped[int] = mapped_column(ForeignKey('domain.id'))
+    created_at: Mapped[datetime] = mapped_column(
+        init=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        init=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    domain: Mapped['Domain'] = relationship(
+        'Domain', back_populates='subdomains', init=False
+    )

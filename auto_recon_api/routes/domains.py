@@ -1,13 +1,14 @@
 from http import HTTPStatus
+import httpx
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auto_recon_api.database import get_session
-from auto_recon_api.models import Domain, User
+from auto_recon_api.models import Domain, Subdomain, User
 from auto_recon_api.schemas import (
     DomainResponseCreated,
     DomainSchema,
@@ -21,11 +22,38 @@ Session = Annotated[AsyncSession, Depends(get_session)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
+async def find_subdomains(domain: str, session: Session, domain_id: int):
+    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
+        response = await client.post(
+            f'http://recon_tool:8001/subdomains',
+            params={'domain': domain}
+        )
+
+        data = response.json()
+
+    for subdomain in data['subdomains']:
+        session.add(
+            Subdomain(
+                host=subdomain['host'], ip=subdomain['ip'], domain_id=domain_id
+            )
+        )
+
+    result = await session.execute(
+        select(Domain).where(Domain.id == domain_id)
+    )
+    db_domain = result.scalar_one()
+    db_domain.status = 'done'
+    await session.commit()
+
+
 @router.post(
     '/', response_model=DomainResponseCreated, status_code=HTTPStatus.CREATED
 )
 async def add_domains(
-    domains: EnterDomainSchema, session: Session, user: CurrentUser
+    domains: EnterDomainSchema,
+    session: Session,
+    user: CurrentUser,
+    background_tasks: BackgroundTasks
 ):
     domain_names = set(domains.domains)
     exists_names = (
@@ -56,6 +84,10 @@ async def add_domains(
 
     for db_domain in new_domains:
         await session.refresh(db_domain)
+    
+        background_tasks.add_task(
+            find_subdomains, db_domain.name, session, db_domain.id
+            )
 
     return {'added': new_domains, 'already_exists': exists_names}
 

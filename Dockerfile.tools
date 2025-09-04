@@ -1,0 +1,42 @@
+FROM kalilinux/kali-rolling:latest
+
+WORKDIR /scripts
+
+WORKDIR /data
+
+RUN apt-get update && apt-get upgrade -y && apt-get dist-upgrade -y && \
+    apt-get install git -y
+
+RUN apt-get install golang -y && go env -w GO111MODULE=auto && go env -w GOPROXY=direct && \
+    go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest && \
+    mv /root/go/bin/subfinder /usr/bin/ && \
+    go install -v github.com/tomnomnom/assetfinder@latest && \
+    mv /root/go/bin/assetfinder /usr/bin/
+
+RUN apt-get install python3 -y && apt-get install python3-pip -y && \
+    apt-get install python3-venv -y && \
+    python3 -m venv .venv && \
+    /data/.venv/bin/python -m pip install "fastapi[standard]" uvicorn pydantic
+
+
+
+# RUN apt-get install sublist3r -y
+
+# RUN apt-get install nikto -y
+
+
+# RUN go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
+# RUN mv /root/go/bin/httpx /usr/bin/
+
+# RUN go install github.com/tomnomnom/waybackurls@latest
+# RUN mv /root/go/bin/waybackurls /usr/bin/
+
+# RUN go install -v github.com/projectdiscovery/nuclei/v2/cmd/nuclei@latest
+# RUN mv /root/go/bin/nuclei /usr/bin/
+# RUN nuclei -update-templates
+
+COPY /api_tools /data/
+
+EXPOSE 8001
+CMD /data/.venv/bin/python -m fastapi run app.py --port 8001
+# CMD ["/bin/bash"]
