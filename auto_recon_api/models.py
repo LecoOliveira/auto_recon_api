@@ -70,9 +70,12 @@ class Domain:
 @table_registry.mapped_as_dataclass
 class Subdomain:
     __tablename__ = 'subdomain'
+    __table_args__ = (
+        UniqueConstraint('host', 'domain_id', name='uq_host_per_domain'),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, init=False)
-    host: Mapped[str] = mapped_column(unique=True)
+    host: Mapped[str] = mapped_column()
     ip: Mapped[str]
     domain_id: Mapped[int] = mapped_column(ForeignKey('domain.id'))
     created_at: Mapped[datetime] = mapped_column(

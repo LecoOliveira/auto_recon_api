@@ -37,8 +37,7 @@ async def test_add_domains_integrity_error(session, user):
 
 def test_get_domains(client, token, domain):
     response = client.get(
-        '/domains/',
-        headers={'Authorization': f'Bearer {token}'}
+        '/domains/', headers={'Authorization': f'Bearer {token}'}
     )
 
     assert response.status_code == HTTPStatus.OK
@@ -49,8 +48,7 @@ def test_get_domains(client, token, domain):
 
 def test_delete_domain(client, token, domain):
     response = client.delete(
-        f'/domains/{domain.id}',
-        headers={'Authorization': f'Bearer {token}'}
+        f'/domains/{domain.id}', headers={'Authorization': f'Bearer {token}'}
     )
 
     assert response.status_code == HTTPStatus.OK
@@ -59,8 +57,7 @@ def test_delete_domain(client, token, domain):
 
 def test_delete_domain_with_error(client, token):
     response = client.delete(
-        '/domains/100',
-        headers={'Authorization': f'Bearer {token}'}
+        '/domains/100', headers={'Authorization': f'Bearer {token}'}
     )
 
     assert response.status_code == HTTPStatus.NOT_FOUND

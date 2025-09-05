@@ -1,13 +1,13 @@
 from http import HTTPStatus
-import httpx
 from typing import Annotated
 
+import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auto_recon_api.database import get_session
+from auto_recon_api.database import get_session, SessionLocal
 from auto_recon_api.models import Domain, Subdomain, User
 from auto_recon_api.schemas import (
     DomainResponseCreated,
@@ -16,34 +16,53 @@ from auto_recon_api.schemas import (
     Message,
 )
 from auto_recon_api.security import get_current_user
+from auto_recon_api.settings import Settings
 
 router = APIRouter(prefix='/domains', tags=['domains'])
 Session = Annotated[AsyncSession, Depends(get_session)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
+settings = Settings()
 
 
-async def find_subdomains(domain: str, session: Session, domain_id: int):
-    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
-        response = await client.post(
-            f'http://recon_tool:8001/subdomains',
-            params={'domain': domain}
-        )
+async def find_subdomains(domain: str, domain_id: int):
+    async with SessionLocal() as session:
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    settings.SUBDOMAIN_URL, params={'domain': domain}
+                )
+                response.raise_for_status()
+                try:
+                    data = response.json()
+                except ValueError:
+                    raise HTTPException(
+                        status_code=HTTPStatus.BAD_GATEWAY,
+                        detail='Invalid JSON response from subdomain service',
+                    )
 
-        data = response.json()
+            async with session.begin():
+                for subdomain in data.get('subdomains', []):
+                    session.add(
+                        Subdomain(
+                            host=subdomain['host'],
+                            ip=subdomain.get('ip', '0.0.0.0'),
+                            domain_id=domain_id,
+                        )
+                    )
 
-    for subdomain in data['subdomains']:
-        session.add(
-            Subdomain(
-                host=subdomain['host'], ip=subdomain['ip'], domain_id=domain_id
-            )
-        )
-
-    result = await session.execute(
-        select(Domain).where(Domain.id == domain_id)
-    )
-    db_domain = result.scalar_one()
-    db_domain.status = 'done'
-    await session.commit()
+                db_domain = await session.scalar(
+                    select(Domain).where(Domain.id == domain_id)
+                )
+                if db_domain:
+                    db_domain.status = 'done'
+        except Exception as error:
+            async with session.begin():
+                db_domain = await session.scalar(
+                    select(Domain).where(Domain.id == domain_id)
+                )
+                if db_domain:
+                    db_domain.status = 'failed'
+            print(f'Find_subdomains error for {domain}: {e}')
 
 
 @router.post(
@@ -53,7 +72,7 @@ async def add_domains(
     domains: EnterDomainSchema,
     session: Session,
     user: CurrentUser,
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
 ):
     domain_names = set(domains.domains)
     exists_names = (
@@ -79,15 +98,15 @@ async def add_domains(
         raise HTTPException(
             detail='One or more domains already exist or violate unique'
             f' constraints. ({str(error.orig)})',
-            status_code=HTTPStatus.CONFLICT
+            status_code=HTTPStatus.CONFLICT,
         )
 
     for db_domain in new_domains:
         await session.refresh(db_domain)
-    
+
         background_tasks.add_task(
-            find_subdomains, db_domain.name, session, db_domain.id
-            )
+            find_subdomains, db_domain.name, db_domain.id
+        )
 
     return {'added': new_domains, 'already_exists': exists_names}
 
