@@ -3,14 +3,11 @@ import socket
 import subprocess
 from typing import Dict, List
 
+
 def run_command(command: List[str], tool_name: str):
     try:
         result = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=60
+            command, capture_output=True, text=True, check=False, timeout=60
         )
         if result.returncode != 0:
             print(f'{tool_name} returned an error: {result.stderr.strip()}')
@@ -45,7 +42,7 @@ def run_subfinder(domain: str):
     if not output:
         return []
 
-    subdomains= []
+    subdomains = []
     for line in output.splitlines():
         try:
             data = json.loads(line)
@@ -65,7 +62,7 @@ def get_ip(lists_subdomains: List[Dict[str, str]]):
 
         try:
             ip = socket.gethostbyname(host)
-        except Exception as err:
+        except socket.gaierror:
             ip = '0.0.0.0'
 
         list_ips.append({**subdomain, 'ip': ip})

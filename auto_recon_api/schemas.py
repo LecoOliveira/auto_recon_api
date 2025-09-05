@@ -50,3 +50,12 @@ class DomainResponseCreated(BaseModel):
 
 class DeleteDomain(BaseModel):
     domain: str
+
+
+class SubdomainSchema(BaseModel):
+    host: str
+    ip: str
+
+
+class SubdomainResponse(BaseModel):
+    subdomains: List[SubdomainSchema]

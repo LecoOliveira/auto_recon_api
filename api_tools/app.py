@@ -1,7 +1,7 @@
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from http import HTTPStatus
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from schemas import SubdomainResponse
 from tasks import get_ip, run_assetfinder, run_subfinder
 
@@ -39,8 +39,7 @@ def get_subdomains(domain: str):
 
     if not subdomain_list:
         raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND,
-            detail="Any subdomains founded"
+            status_code=HTTPStatus.NOT_FOUND, detail='Any subdomains founded'
         )
 
     return {'subdomains': subdomain_list}

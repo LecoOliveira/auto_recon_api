@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auto_recon_api.database import get_session, SessionLocal
+from auto_recon_api.database import SessionLocal, get_session
 from auto_recon_api.models import Domain, Subdomain, User
 from auto_recon_api.schemas import (
     DomainResponseCreated,
@@ -62,7 +62,7 @@ async def find_subdomains(domain: str, domain_id: int):
                 )
                 if db_domain:
                     db_domain.status = 'failed'
-            print(f'Find_subdomains error for {domain}: {e}')
+            print(f'Find_subdomains error for {domain}: {error}')
 
 
 @router.post(
@@ -113,9 +113,16 @@ async def add_domains(
 
 @router.get('/', response_model=DomainSchema, status_code=HTTPStatus.OK)
 async def get_domains(session: Session, user: CurrentUser):
-    domains = (
-        await session.scalars(select(Domain).where(Domain.user_id == user.id))
-    ).all()
+    result = await session.execute(
+        select(Domain).where(Domain.user_id == user.id)
+    )
+    domains = result.scalars().all()
+
+    if not domains:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail='No domains found',
+        )
 
     return {'domains': domains}
 
