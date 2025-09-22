@@ -7,7 +7,12 @@ from typing import Dict, List
 def run_command(command: List[str], tool_name: str):
     try:
         result = subprocess.run(
-            command, capture_output=True, text=True, check=False, timeout=60
+            command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60
         )
         if result.returncode != 0:
             print(f'{tool_name} returned an error: {result.stderr.strip()}')
@@ -53,6 +58,32 @@ def run_subfinder(domain: str):
             continue
 
     return subdomains
+
+
+def run_discover_urls(subdomain: str):
+    command_string = f'gau {subdomain} --config /data/.gau.toml \
+    | httpx -silent -json'
+    output = run_command([command_string], 'hosts_discover')
+    if not output:
+        return []
+    hosts = []
+    for line in output.splitlines():
+        try:
+            data = json.loads(line)
+            if 'url' in data:
+                hosts.append({
+                    'url': data['url'],
+                    'title': data['title'] if 'title' in data else 'unknown',
+                    'ip': data['host'],
+                    'port': data['port'],
+                    'tech': data['tech'] if 'tech' in data else ['unknown'],
+                    'status_code': data['status_code']
+                })
+        except json.JSONDecodeError:
+            print(f'Invalid JSON line: {line}')
+            continue
+
+    return hosts
 
 
 def get_ip(lists_subdomains: List[Dict[str, str]]):

@@ -11,7 +11,11 @@ RUN apt-get install golang -y && go env -w GO111MODULE=auto && go env -w GOPROXY
     go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest && \
     mv /root/go/bin/subfinder /usr/bin/ && \
     go install -v github.com/tomnomnom/assetfinder@latest && \
-    mv /root/go/bin/assetfinder /usr/bin/
+    mv /root/go/bin/assetfinder /usr/bin/ && \
+    go install -v github.com/lc/gau/v2/cmd/gau@latest && \
+    mv /root/go/bin/gau /usr/bin/ && \
+    go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest && \
+    mv /root/go/bin/httpx /usr/bin/
 
 RUN apt-get install python3 -y && apt-get install python3-pip -y && \
     apt-get install python3-venv -y && \
@@ -23,10 +27,6 @@ RUN apt-get install python3 -y && apt-get install python3-pip -y && \
 # RUN apt-get install sublist3r -y
 
 # RUN apt-get install nikto -y
-
-
-# RUN go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
-# RUN mv /root/go/bin/httpx /usr/bin/
 
 # RUN go install github.com/tomnomnom/waybackurls@latest
 # RUN mv /root/go/bin/waybackurls /usr/bin/

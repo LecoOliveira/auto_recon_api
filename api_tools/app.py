@@ -1,9 +1,10 @@
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from http import HTTPStatus
+from typing import List
 
 from fastapi import FastAPI, HTTPException
-from schemas import SubdomainResponse
-from tasks import get_ip, run_assetfinder, run_subfinder
+from schemas import SubdomainResponse, SubdomainSchema
+from tasks import get_ip, run_assetfinder, run_discover_urls, run_subfinder
 
 app = FastAPI()
 
@@ -43,3 +44,28 @@ def get_subdomains(domain: str):
         )
 
     return {'subdomains': subdomain_list}
+
+
+@app.post('/hosts', status_code=HTTPStatus.OK)
+def get_hosts(subdomains: List[SubdomainSchema]):
+    hosts = []
+    try:
+        with ProcessPoolExecutor() as executor:
+            futures = {
+                executor.submit(run_discover_urls, sub.host): sub.host
+                for sub in subdomains
+            }
+            for future in as_completed(futures, timeout=120):
+                sub_host = futures[future]
+                result = future.result()
+                hosts.append(
+                    {'host': sub_host,'total':len(result), 'result': result}
+                )
+
+    except Exception as exc:
+        raise HTTPException(
+            detail=f'Error {exc}',
+            status_code=HTTPStatus.CONFLICT
+        )
+
+    return {'hosts': hosts}

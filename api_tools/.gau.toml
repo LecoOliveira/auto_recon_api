@@ -1,0 +1,11 @@
+threads = 2
+verbose = false
+retries = 15
+subdomains = true
+parameters = false
+providers = ["wayback","commoncrawl","otx","urlscan"]
+blacklist = [".ttf",".woff",".svg",".png",".jpg",".css",".gif",".ico"]
+json = false
+
+[filters]
+    filterstatuscodes = [404,302]
