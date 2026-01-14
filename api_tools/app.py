@@ -57,7 +57,7 @@ def get_hosts(subdomains: List[SubdomainSchema]):
             }
             for future in as_completed(futures, timeout=120):
                 sub_host = futures[future]
-                result = future.result()
+                result = future.result(timeout=120)
                 hosts.append(
                     {'host': sub_host,'total':len(result), 'result': result}
                 )
