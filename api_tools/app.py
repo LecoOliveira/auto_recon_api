@@ -59,7 +59,7 @@ def get_hosts(subdomains: List[SubdomainSchema]):
                 sub_host = futures[future]
                 result = future.result(timeout=120)
                 hosts.append(
-                    {'host': sub_host,'total':len(result), 'result': result}
+                    {'host': sub_host, 'total': len(result), 'result': result}
                 )
 
     except Exception as exc:
