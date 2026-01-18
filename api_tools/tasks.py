@@ -8,23 +8,24 @@ def run_command(command: List[str], tool_name: str):
     try:
         result = subprocess.run(
             command,
-            shell=True,
             capture_output=True,
             text=True,
-            check=False,
-            timeout=60
+            check=True,
+            timeout=120
         )
-        if result.returncode != 0:
-            print(f'{tool_name} returned an error: {result.stderr.strip()}')
 
         return result.stdout.strip()
 
     except FileNotFoundError:
-        print(f'{tool_name} not founded')
-    except subprocess.TimeoutExpired:
-        print(f'{tool_name} took a long time and was interrupted')
+        raise RuntimeError(f"{tool_name} not found")
 
-        return ''
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f"{tool_name} timeout")
+
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(
+            f"{tool_name} error: {exc.stderr.strip()}"
+        )
 
 
 def run_assetfinder(domain: str):
