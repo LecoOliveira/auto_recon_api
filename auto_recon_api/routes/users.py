@@ -55,7 +55,7 @@ async def read_user(user_id: int, session: Session, current_user: CurrentUser):
 
     if current_user.id != user_id:
         raise HTTPException(
-            detail='Not enouth permissions',
+            detail='Not enough permissions',
             status_code=HTTPStatus.FORBIDDEN,
         )
 
@@ -68,7 +68,7 @@ async def update_user(
 ):
     if current_user.id != user_id:
         raise HTTPException(
-            detail='Not enouth permissions',
+            detail='Not enough permissions',
             status_code=HTTPStatus.FORBIDDEN,
         )
 
