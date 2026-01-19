@@ -1,4 +1,4 @@
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
 from http import HTTPStatus
 from typing import List
 
@@ -15,7 +15,7 @@ app = FastAPI()
 def get_subdomains(domain: str):
     results = []
 
-    with ProcessPoolExecutor(max_workers=2) as executor:
+    with ThreadPoolExecutor(max_workers=2) as executor:
         future_to_func = {
             executor.submit(run_subfinder, domain): 'run_subfinder',
             executor.submit(run_assetfinder, domain): 'run_assetfinder',
@@ -23,7 +23,7 @@ def get_subdomains(domain: str):
         for future in as_completed(future_to_func, timeout=120):
             func_name = future_to_func[future]
             try:
-                response = future.result(timeout=90)
+                response = future.result(timeout=120)
                 if response:
                     results.append(response)
                 print(f'{func_name} result:\n\n{future.result()}\n')
@@ -49,23 +49,46 @@ def get_subdomains(domain: str):
 @app.post('/hosts', status_code=HTTPStatus.OK)
 def get_hosts(subdomains: List[SubdomainSchema]):
     hosts = []
-    try:
-        with ProcessPoolExecutor() as executor:
-            futures = {
-                executor.submit(run_discover_urls, sub.host): sub.host
-                for sub in subdomains
-            }
-            for future in as_completed(futures, timeout=120):
-                sub_host = futures[future]
-                result = future.result(timeout=120)
-                hosts.append(
-                    {'host': sub_host, 'total': len(result), 'result': result}
-                )
 
-    except Exception as exc:
-        raise HTTPException(
-            detail=f'Error {exc}',
-            status_code=HTTPStatus.CONFLICT
-        )
+    with ThreadPoolExecutor() as executor:
+        futures = {
+            executor.submit(run_discover_urls, sub.host): sub.host
+            for sub in subdomains
+        }
+        try:
+            for future in as_completed(futures, timeout=180):
+                sub_host = futures[future]
+                try:
+                    result = future.result(timeout=180)
+                    hosts.append({
+                        'host': sub_host,
+                        'total': len(result),
+                        'result': result
+                    })
+                except TimeoutError:
+                    hosts.append({
+                        "host": sub_host,
+                        "total": 0,
+                        "result": [],
+                        "error": "timeout"
+                    })
+                except Exception as exc:
+                    hosts.append({
+                        "host": sub_host,
+                        "total": 0,
+                        "result": [],
+                        "error": str(exc)
+                    })
+
+        except TimeoutError:
+            for f, sub_host in futures.items():
+                if not f.done():
+                    f.cancel()
+                    hosts.append({
+                        "host": sub_host,
+                        "total": 0,
+                        "result": [],
+                        "error": "timeout"
+                    })
 
     return {'hosts': hosts}
