@@ -6,13 +6,15 @@ from jwt import decode
 from auto_recon_api.security import create_access_token, settings
 
 
-def test_get_current_user_without_credentials(): ...
+def test_get_current_user_without_credentials(client):
+    response = client.get('/api/v1/users/1')
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
 
 
 def test_token_expired_after_time(client, user):
     with freeze_time('2023-07-14 12:00:00'):
         response = client.post(
-            '/auth/token',
+            '/api/v1/auth/token/',
             data={'username': user.email, 'password': user.clean_password},
         )
         assert response.status_code == HTTPStatus.OK
@@ -20,7 +22,7 @@ def test_token_expired_after_time(client, user):
 
     with freeze_time('2023-07-14 12:31:00'):
         response = client.put(
-            f'/users/{user.id}',
+            f'/api/v1/users/{user.id}',
             headers={'Authorization': f'Bearer {token}'},
             json={
                 'username': 'wrongwrong',
@@ -29,12 +31,12 @@ def test_token_expired_after_time(client, user):
             },
         )
         assert response.status_code == HTTPStatus.UNAUTHORIZED
-        assert response.json() == {'detail': 'Could not validate credentials'}
+        assert response.json()['message'] == 'Could not validate credentials'
 
 
 def test_get_token(client, user):
     response = client.post(
-        '/auth/token',
+        '/api/v1/auth/token/',
         data={'username': user.email, 'password': user.clean_password},
     )
     token = response.json()
@@ -46,25 +48,25 @@ def test_get_token(client, user):
 
 def test_token_inexistent_user(client):
     response = client.post(
-        '/auth/token',
+        '/api/v1/auth/token/',
         data={'username': 'no_user@no_domain.com', 'password': 'testtest'},
     )
     assert response.status_code == HTTPStatus.UNAUTHORIZED
-    assert response.json() == {'detail': 'Incorrect username or password'}
+    assert response.json()['message'] == 'Incorrect username or password'
 
 
 def test_token_wrong_password(client, user):
     response = client.post(
-        '/auth/token',
+        '/api/v1/auth/token/',
         data={'username': user.email, 'password': 'wrong_password'},
     )
     assert response.status_code == HTTPStatus.UNAUTHORIZED
-    assert response.json() == {'detail': 'Incorrect username or password'}
+    assert response.json()['message'] == 'Incorrect username or password'
 
 
 def test_refresh_token(client, user, token):
     response = client.post(
-        '/auth/refresh_token',
+        '/api/v1/auth/refresh_token',
         headers={'Authorization': f'Bearer {token}'},
     )
 
@@ -79,7 +81,7 @@ def test_refresh_token(client, user, token):
 def test_token_expired_dont_refresh(client, user):
     with freeze_time('2023-07-14 12:00:00'):
         response = client.post(
-            '/auth/token',
+            '/api/v1/auth/token/',
             data={'username': user.email, 'password': user.clean_password},
         )
         assert response.status_code == HTTPStatus.OK
@@ -87,11 +89,11 @@ def test_token_expired_dont_refresh(client, user):
 
     with freeze_time('2023-07-14 12:31:00'):
         response = client.post(
-            '/auth/refresh_token',
+            '/api/v1/auth/refresh_token',
             headers={'Authorization': f'Bearer {token}'},
         )
         assert response.status_code == HTTPStatus.UNAUTHORIZED
-        assert response.json() == {'detail': 'Could not validate credentials'}
+        assert response.json()['message'] == 'Could not validate credentials'
 
 
 def test_get_current_user_not_found__exercicio(client):
@@ -99,12 +101,12 @@ def test_get_current_user_not_found__exercicio(client):
     token = create_access_token(data)
 
     response = client.get(
-        '/users/1',
+        '/api/v1/users/1',
         headers={'Authorization': f'Bearer {token}'},
     )
 
     assert response.status_code == HTTPStatus.UNAUTHORIZED
-    assert response.json() == {'detail': 'Could not validate credentials'}
+    assert response.json()['message'] == 'Could not validate credentials'
 
 
 def test_get_current_user_does_not_exists__exercicio(client):
@@ -112,12 +114,12 @@ def test_get_current_user_does_not_exists__exercicio(client):
     token = create_access_token(data)
 
     response = client.get(
-        '/users/1',
+        '/api/v1/users/1',
         headers={'Authorization': f'Bearer {token}'},
     )
 
     assert response.status_code == HTTPStatus.UNAUTHORIZED
-    assert response.json() == {'detail': 'Could not validate credentials'}
+    assert response.json()['message'] == 'Could not validate credentials'
 
 
 def test_jwt():
@@ -134,8 +136,8 @@ def test_jwt():
 
 def test_jwt_invalid_token(client):
     response = client.get(
-        '/users/1', headers={'Authorization': 'Bearer token-invalido'}
+        '/api/v1/users/1', headers={'Authorization': 'Bearer token-invalido'}
     )
 
     assert response.status_code == HTTPStatus.UNAUTHORIZED
-    assert response.json() == {'detail': 'Could not validate credentials'}
+    assert response.json()['message'] == 'Could not validate credentials'

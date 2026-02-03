@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from testcontainers.postgres import PostgresContainer
 
 from auto_recon_api.app import app
-from auto_recon_api.database import get_session
+from auto_recon_api.db.session import get_db
 from auto_recon_api.models import Domain, User, table_registry
 from auto_recon_api.security import get_password_hash
 from auto_recon_api.settings import Settings
@@ -14,11 +14,11 @@ from auto_recon_api.settings import Settings
 
 @pytest.fixture
 def client(session):
-    def get_session_override():
-        return session
+    async def get_db_override():
+        yield session
 
     with TestClient(app) as client:
-        app.dependency_overrides[get_session] = get_session_override
+        app.dependency_overrides[get_db] = get_db_override
         yield client
 
     app.dependency_overrides.clear()
@@ -74,7 +74,7 @@ async def user_2(session):
 @pytest.fixture
 def token(client, user):
     response = client.post(
-        '/auth/token',
+        '/api/v1/auth/token/',
         data={'username': user.email, 'password': user.clean_password},
     )
     return response.json()['access_token']
@@ -89,6 +89,27 @@ async def domain(session, user):
     await session.refresh(domain)
 
     yield domain
+
+
+@pytest.fixture
+def session_ctx(session):
+    class Ctx:
+        def __init__(self, sess):
+            self.sess = sess
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        def begin(self, nested: bool = False):
+            return self.sess.begin_nested()
+
+        def __getattr__(self, name):
+            return getattr(self.sess, name)
+
+    return lambda: Ctx(session)
 
 
 @pytest.fixture

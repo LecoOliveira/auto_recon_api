@@ -3,7 +3,7 @@ from http import HTTPStatus
 
 def test_create_user(client):
     response = client.post(
-        '/users/',
+        '/api/v1/users/',
         json={
             'username': 'teste',
             'email': 'teste@teste.com',
@@ -17,7 +17,7 @@ def test_create_user(client):
 
 def test_create_user_username_exists(client, user):
     response = client.post(
-        '/users/',
+        '/api/v1/users/',
         json={
             'username': user.username,
             'email': 'test@mail.com',
@@ -26,12 +26,12 @@ def test_create_user_username_exists(client, user):
     )
 
     assert response.status_code == HTTPStatus.CONFLICT
-    assert response.json() == {'detail': 'Username or email already used'}
+    assert response.json()['message'] == 'Username or email already used'
 
 
 def test_create_user_email_exists(client, user):
     response = client.post(
-        '/users/',
+        '/api/v1/users/',
         json={
             'username': 'test',
             'email': user.email,
@@ -40,12 +40,12 @@ def test_create_user_email_exists(client, user):
     )
 
     assert response.status_code == HTTPStatus.CONFLICT
-    assert response.json() == {'detail': 'Username or email already used'}
+    assert response.json()['message'] == 'Username or email already used'
 
 
 def test_read_user(client, user, token):
     response = client.get(
-        f'/users/{user.id}',
+        f'/api/v1/users/{user.id}',
         headers={'Authorization': f'Bearer {token}'},
     )
 
@@ -59,16 +59,17 @@ def test_read_user(client, user, token):
 
 def test_get_user_not_found(client, token, user_2):
     response = client.get(
-        f'/users/{user_2.id}', headers={'Authorization': f'Bearer {token}'}
+        f'/api/v1/users/{user_2.id}',
+        headers={'Authorization': f'Bearer {token}'}
     )
 
     assert response.status_code == HTTPStatus.FORBIDDEN
-    assert response.json() == {'detail': 'Not enouth permissions'}
+    assert response.json()['message'] == 'Not enough permissions'
 
 
 def test_update_user(client, user, token):
     response = client.put(
-        f'/users/{user.id}',
+        f'/api/v1/users/{user.id}',
         headers={'Authorization': f'Bearer {token}'},
         json={
             'username': 'new_username',
@@ -87,7 +88,7 @@ def test_update_user(client, user, token):
 
 def test_update_other_user(client, user_2, token):
     response = client.put(
-        f'/users/{user_2.id}',
+        f'/api/v1/users/{user_2.id}',
         headers={'Authorization': f'Bearer {token}'},
         json={
             'username': 'new_username',
@@ -101,7 +102,7 @@ def test_update_other_user(client, user_2, token):
 
 def test_update_user_already_exists(client, user_2, user, token):
     response = client.put(
-        f'/users/{user.id}',
+        f'/api/v1/users/{user.id}',
         headers={'Authorization': f'Bearer {token}'},
         json={
             'username': user_2.username,
@@ -115,7 +116,7 @@ def test_update_user_already_exists(client, user_2, user, token):
 
 def test_delete_user(client, user, token):
     response = client.delete(
-        f'/users/{user.id}',
+        f'/api/v1/users/{user.id}',
         headers={'Authorization': f'Bearer {token}'},
     )
 
@@ -125,9 +126,9 @@ def test_delete_user(client, user, token):
 
 def test_delete_user_without_permissions(client, user_2, token):
     response = client.delete(
-        f'/users/{user_2.id}',
+        f'/api/v1/users/{user_2.id}',
         headers={'Authorization': f'Bearer {token}'},
     )
 
     assert response.status_code == HTTPStatus.FORBIDDEN
-    assert response.json()['detail'] == 'Not enough permissions'
+    assert response.json()['message'] == 'Not enough permissions'

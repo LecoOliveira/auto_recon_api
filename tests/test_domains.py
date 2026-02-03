@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from unittest.mock import ANY, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -41,10 +41,14 @@ from auto_recon_api.models import Domain
 async def test_add_domains(client, token, session, user):
     tasks = 2
     with patch(
-        'auto_recon_api.routes.domains.find_subdomains', autospec=True
-    ) as mock_find:
+        'auto_recon_api.api.v1.endpoints.domains.subdomains_queue.enqueue',
+        autospec=True
+    ) as mock_enqueue:
+        # ensure the mocked job has a serializable id
+        mock_enqueue.return_value.id = 'job-1'
+
         response = client.post(
-            '/domains/',
+            '/api/v1/domains/',
             json={'domains': ['example.com', 'test.com']},
             headers={'Authorization': f'Bearer {token}'},
         )
@@ -55,9 +59,11 @@ async def test_add_domains(client, token, session, user):
         assert 'added' in data
         assert len(data['added']) == tasks
         assert data['already_exists'] == []
-        assert mock_find.call_count == tasks
-        mock_find.assert_any_call('example.com', ANY)
-        mock_find.assert_any_call('test.com', ANY)
+        assert data['job_id'] == 'job-1'
+        assert mock_enqueue.call_count == 1
+        args, kwargs = mock_enqueue.call_args
+        assert isinstance(args[1], list)
+        assert len(args[1]) == tasks
 
     results = (
         await session.execute(
@@ -69,18 +75,18 @@ async def test_add_domains(client, token, session, user):
 
 def test_get_domains(client, token, domain):
     response = client.get(
-        '/domains/', headers={'Authorization': f'Bearer {token}'}
+        '/api/v1/domains/', headers={'Authorization': f'Bearer {token}'}
     )
 
     assert response.status_code == HTTPStatus.OK
-    domain_name = {'name': domain.name}
 
-    assert response.json()['domains'][0]['name'] == domain_name['name']
+    assert response.json()['items'][0]['name'] == domain.name
 
 
 def test_delete_domain(client, token, domain):
     response = client.delete(
-        f'/domains/{domain.id}', headers={'Authorization': f'Bearer {token}'}
+        f'/api/v1/domains/{domain.id}',
+        headers={'Authorization': f'Bearer {token}'}
     )
 
     assert response.status_code == HTTPStatus.OK
@@ -89,8 +95,8 @@ def test_delete_domain(client, token, domain):
 
 def test_delete_domain_with_error(client, token):
     response = client.delete(
-        '/domains/100', headers={'Authorization': f'Bearer {token}'}
+        '/api/v1/domains/100', headers={'Authorization': f'Bearer {token}'}
     )
 
     assert response.status_code == HTTPStatus.NOT_FOUND
-    assert response.json()['detail'] == 'Domain not found'
+    assert response.json()['message'] == 'Domain not found'
