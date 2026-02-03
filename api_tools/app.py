@@ -1,12 +1,28 @@
+import json
 from concurrent.futures import ThreadPoolExecutor, TimeoutError, as_completed
 from http import HTTPStatus
-from typing import List
+from typing import Iterable, List
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
+from fastapi.responses import StreamingResponse
 from schemas import SubdomainResponse, SubdomainSchema
+from settings import get_settings
 from tasks import get_ip, run_assetfinder, run_discover_urls, run_subfinder
 
 app = FastAPI()
+settings = get_settings()
+
+
+def _check_internal_token(x_internal_token: str | None):
+    if x_internal_token != settings.INTERNAL_TOKEN:
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN, detail='forbidden'
+        )
+
+
+def iter_ndjson(items: Iterable[dict]) -> Iterable[bytes]:
+    for item in items:
+        yield (json.dumps(item, ensure_ascii=False) + '\n').encode('utf-8')
 
 
 @app.post(
@@ -15,22 +31,23 @@ app = FastAPI()
 def get_subdomains(domain: str):
     results = []
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
+    with ThreadPoolExecutor(max_workers=6) as executor:
         future_to_func = {
             executor.submit(run_subfinder, domain): 'run_subfinder',
             executor.submit(run_assetfinder, domain): 'run_assetfinder',
         }
-        for future in as_completed(future_to_func, timeout=120):
-            func_name = future_to_func[future]
-            try:
-                response = future.result(timeout=120)
-                if response:
-                    results.append(response)
-                print(f'{func_name} result:\n\n{future.result()}\n')
-            except Exception as exc:
-                print(f'{func_name} generated an exception: {exc}')
-            except TimeoutError:
-                print(f'{func_name} take to much time')
+        try:
+            for future in as_completed(future_to_func, timeout=120):
+                func_name = future_to_func[future]
+                try:
+                    response = future.result(timeout=120)
+                    if response:
+                        results.append(response)
+                    print(f'{func_name} result:\n\n{response}\n')
+                except Exception as exc:
+                    print(f'{func_name} generated an exception: {exc}')
+        except TimeoutError:
+            print(f'{func_name} take to much time')
 
     list_subs_filtered = {
         tuple(sorted(host.items())) for sublist in results for host in sublist
@@ -46,49 +63,47 @@ def get_subdomains(domain: str):
     return {'subdomains': subdomain_list}
 
 
-@app.post('/hosts', status_code=HTTPStatus.OK)
-def get_hosts(subdomains: List[SubdomainSchema]):
-    hosts = []
+@app.post('/hosts/stream', status_code=HTTPStatus.OK)
+def stream_hosts_urls(
+    subdomains: List[SubdomainSchema],
+    x_internal_token: str | None = Header(default=None),
+):
+    _check_internal_token(x_internal_token)
 
-    with ThreadPoolExecutor() as executor:
-        futures = {
-            executor.submit(run_discover_urls, sub.host): sub.host
-            for sub in subdomains
-        }
-        try:
-            for future in as_completed(futures, timeout=180):
-                sub_host = futures[future]
-                try:
-                    result = future.result(timeout=180)
-                    hosts.append({
-                        'host': sub_host,
-                        'total': len(result),
-                        'result': result
-                    })
-                except TimeoutError:
-                    hosts.append({
-                        "host": sub_host,
-                        "total": 0,
-                        "result": [],
-                        "error": "timeout"
-                    })
-                except Exception as exc:
-                    hosts.append({
-                        "host": sub_host,
-                        "total": 0,
-                        "result": [],
-                        "error": str(exc)
-                    })
+    max_workers = 10
 
-        except TimeoutError:
-            for f, sub_host in futures.items():
-                if not f.done():
-                    f.cancel()
-                    hosts.append({
-                        "host": sub_host,
-                        "total": 0,
-                        "result": [],
-                        "error": "timeout"
-                    })
+    def generator():
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(run_discover_urls, sub.host): sub.host
+                for sub in subdomains
+            }
 
-    return {'hosts': hosts}
+            try:
+                for future in as_completed(futures, timeout=60 * 30):
+                    host = futures[future]
+                    try:
+                        results = future.result(timeout=180)
+                        for r in results:
+                            payload = {'host': host, **r}
+                            yield from iter_ndjson([payload])
+                    except TimeoutError:
+                        yield from iter_ndjson([{
+                            'host': host,
+                            'error': 'timeout',
+                        }])
+                    except Exception as exc:
+                        yield from iter_ndjson([{
+                            'host': host,
+                            'error': str(exc),
+                        }])
+            except TimeoutError:
+                for f, host in futures.items():
+                    if not f.done():
+                        f.cancel()
+                        yield from iter_ndjson([{
+                            'host': host,
+                            'error': 'timeout',
+                        }])
+
+    return StreamingResponse(generator(), media_type='application/x-ndjson')
