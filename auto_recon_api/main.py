@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import os
 from contextlib import asynccontextmanager
 from http import HTTPStatus
 
@@ -17,6 +19,7 @@ from auto_recon_api.core.logging import configure_logging
 from auto_recon_api.db.session import close_engine
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -24,23 +27,30 @@ async def lifespan(app: FastAPI):
     configure_logging()
     settings = get_settings()
     app.state.settings = settings
+    testing = os.getenv('TESTING') == '1'
 
-    redis = Redis(
-        host='redis',
-        port=6379,
-        db=0,
-        decode_responses=False,
-        socket_connect_timeout=5,
-        socket_timeout=5,
-    )
-    await redis.ping()
+    redis = None
 
-    await FastAPILimiter.init(redis, prefix='recon:rl')
     try:
+        if not testing:
+            redis = Redis(
+                host='redis',
+                port=6379,
+                db=0,
+                decode_responses=False,
+                socket_connect_timeout=5,
+                socket_timeout=5,
+            )
+            await FastAPILimiter.init(redis, prefix='recon:rl')
+        else:
+            logger.warning('TESTING=1: pulando Redis e FastAPILimiter')
+
         yield
+
     finally:
         await close_engine()
-        await redis.aclose()
+        if redis is not None:
+            await redis.aclose()
 
 
 def create_app() -> FastAPI:

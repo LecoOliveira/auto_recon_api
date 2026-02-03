@@ -1,3 +1,5 @@
+import os
+
 import factory
 import pytest
 import pytest_asyncio
@@ -10,6 +12,11 @@ from auto_recon_api.db.session import get_db
 from auto_recon_api.models import Domain, User, table_registry
 from auto_recon_api.security import get_password_hash
 from auto_recon_api.settings import Settings
+
+
+@pytest.fixture(scope='session', autouse=True)
+def set_testing_env():
+    os.environ['TESTING'] = '1'
 
 
 @pytest.fixture

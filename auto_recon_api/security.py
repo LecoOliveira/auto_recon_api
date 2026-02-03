@@ -47,7 +47,7 @@ def create_access_token(data: dict):
 
 async def get_current_user(
     session: Annotated[AsyncSession, Depends(get_db)],
-    token: str = Annotated[str, Depends(oauth_scheme)],
+    token: Annotated[str, Depends(oauth_scheme)],
 ):
     credentials_exception = HTTPException(
         status_code=HTTPStatus.UNAUTHORIZED,

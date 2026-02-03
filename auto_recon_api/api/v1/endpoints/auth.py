@@ -1,7 +1,8 @@
+import os
 from http import HTTPStatus
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_limiter.depends import RateLimiter
 from sqlalchemy import select
@@ -12,13 +13,19 @@ from auto_recon_api.schemas import Token
 from auto_recon_api.security import create_access_token, verify_password
 
 router = APIRouter(prefix='/auth', tags=['auth'])
-
+_limiter = RateLimiter(times=5, seconds=60)
 FormData = Annotated[OAuth2PasswordRequestForm, Depends()]
+
+
+async def maybe_rate_limit(request: Request, response: Response):
+    if os.getenv('TESTING') == '1':
+        return
+    await _limiter(request, response)
 
 
 @router.post(
     '/token',
-    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+    dependencies=[Depends(maybe_rate_limit)],
     status_code=HTTPStatus.OK,
     response_model=Token,
 )
