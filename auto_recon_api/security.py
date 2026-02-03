@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from http import HTTPStatus
+from typing import Annotated
 from zoneinfo import ZoneInfo
 
 from fastapi import Depends, HTTPException
@@ -9,14 +10,14 @@ from pwdlib import PasswordHash
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auto_recon_api.database import get_session
+from auto_recon_api.core.config import get_settings
+from auto_recon_api.db.session import get_db
 from auto_recon_api.models import User
-from auto_recon_api.settings import Settings
 
 oauth_scheme = OAuth2PasswordBearer(
-    tokenUrl='auth/token', refreshUrl='auth/refresh'
+    tokenUrl='api/v1/auth/token', refreshUrl='api/v1/auth/refresh'
 )
-settings = Settings()
+settings = get_settings()
 pwd_context = PasswordHash.recommended()
 
 
@@ -45,8 +46,8 @@ def create_access_token(data: dict):
 
 
 async def get_current_user(
-    session: AsyncSession = Depends(get_session),
-    token: str = Depends(oauth_scheme),
+    session: Annotated[AsyncSession, Depends(get_db)],
+    token: str = DAnnotated[str, Depends(oauth_scheme)],
 ):
     credentials_exception = HTTPException(
         status_code=HTTPStatus.UNAUTHORIZED,
