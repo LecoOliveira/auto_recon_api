@@ -1,4 +1,4 @@
-from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
+from concurrent.futures import ThreadPoolExecutor, TimeoutError, as_completed
 from http import HTTPStatus
 from typing import List
 
