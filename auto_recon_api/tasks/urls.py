@@ -27,6 +27,13 @@ def normalize_url(url: str) -> str:
     netloc = parts.netloc.lower()
     path = parts.path or '/'
     query = parts.query
+
+    # If URL had no netloc (e.g. 'example.com/path'), extract host from path
+    if not netloc and path and not path.startswith('/'):
+        segs = path.split('/', 1)
+        netloc = segs[0].lower()
+        path = '/' + segs[1] if len(segs) > 1 else '/'
+
     normalized = urlunsplit((scheme, netloc, path, query, ''))
     if normalized.endswith('/') and len(path) > 1:
         normalized = normalized[:-1]
